@@ -1,19 +1,24 @@
 const db=require("./db");
 const util=require("./utils")
 const fs=require('fs')
+const bcrypt = require('bcrypt')
 module.exports ={
   saveUser(user,status){
     console.log(user.name,status);
-    if(status==='login'){
+    if(status==='login' || status==='register'){
       return new Promise((resolve, reject) => {
         db.user.insert(user,(err,newUser) => {
           if(err){
+            console.error('保存用户失败:', err);
             reject(err)
           }else {
+            console.log('用户保存成功:', newUser);
             resolve(newUser)
           }
         })
       })
+    }else{
+      return Promise.resolve(null);
     }
   },
   saveMessage(from,to,message,type){
@@ -24,7 +29,7 @@ module.exports ={
       fs.writeFileSync(`./upload/${filename}.png`,dataBuffer)
       message=`/assets/images/${filename}.png`
     }
-    console.log("\033[36m"+from.name+"\033[0m对<\033[36m"+to.name+"\033[0m>:\033[32m"+message+"\033[0m")
+    console.log("\x1b[36m"+from.name+"\x1b[0m对<\x1b[36m"+to.name+"\x1b[0m>:\x1b[32m"+message+"\x1b[0m")
     const doc={
       from,
       to,
@@ -63,5 +68,26 @@ module.exports ={
         }
       })
     })
+  },
+  // 根据用户名查找用户
+  getUserByName(name){
+    return new Promise((resolve, reject) => {
+      db.user.findOne({name: name}, (err, doc) => {
+        if(err){
+          reject(err)
+        }else {
+          resolve(doc)
+        }
+      })
+    })
+  },
+  // 密码加密
+  async hashPassword(password){
+    const saltRounds = 10;
+    return await bcrypt.hash(password, saltRounds);
+  },
+  // 密码验证
+  async verifyPassword(inputPassword, hashedPassword){
+    return await bcrypt.compare(inputPassword, hashedPassword);
   }
 };

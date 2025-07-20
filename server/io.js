@@ -23,17 +23,39 @@ const util={
       this.loginSuccess(user,socket);
       console.log(`用户<${user.name}>重新链接成功！`)
     }else {
-      const flag=await this.isHaveName(user.name);
-      if(!flag){
+      // 检查用户是否存在
+      const existingUser = await store.getUserByName(user.name);
+      if(existingUser){
+        // 用户存在，验证密码
+        const isPasswordValid = await store.verifyPassword(user.password, existingUser.password);
+        if(isPasswordValid){
+          // 检查用户是否已在线
+          const isOnline = await this.isHaveName(user.name);
+          if(!isOnline){
+            user.id = socket.id;
+            user.time = new Date().getTime();
+            this.loginSuccess(user,socket);
+            const messages = await store.getMessages();
+            socket.emit("history-message","group_001",messages);
+          }else{
+            console.log(`登录失败,用户<${user.name}>已在线!`)
+            socket.emit('loginFail','该用户已在线，请稍后再试!')
+          }
+        }else{
+          console.log(`登录失败,用户<${user.name}>密码错误!`)
+          socket.emit('loginFail','用户名或密码错误!')
+        }
+      }else{
+        // 用户不存在，注册新用户
+        const hashedPassword = await store.hashPassword(user.password);
+        user.password = hashedPassword;
         user.id=socket.id;
         user.time=new Date().getTime();
         this.loginSuccess(user,socket);
-        store.saveUser(user,'login')
+        await store.saveUser(user,'register')
         const messages = await store.getMessages();
         socket.emit("history-message","group_001",messages);
-      }else {
-        console.log(`登录失败,昵称<${user.name}>已存在!`)
-        socket.emit('loginFail','登录失败,昵称已存在!')
+        console.log(`新用户<${user.name}>注册并登录成功！`)
       }
     }
   },
