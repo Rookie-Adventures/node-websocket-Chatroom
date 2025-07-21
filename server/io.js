@@ -9,8 +9,10 @@ const io = require('socket.io')({
 const jwt=require("./jwt");
 const store=require("./store");
 const { AuthManager, USER_ROLES, PERMISSIONS } = require('./auth');
+const FingerprintManager = require('./fingerprint');
 
 const authManager = new AuthManager();
+const fingerprintManager = new FingerprintManager();
 const util={
   async login(user,socket,isReconnect) {
     let ip=socket.handshake.address.replace(/::ffff:/,"");
@@ -46,6 +48,23 @@ const util={
           user.id = socket.id;
           user.time = new Date().getTime();
           
+          // 设备指纹验证（登录）
+          if(user.fingerprintData) {
+            const fingerprintResult = await fingerprintManager.validateLogin(
+              user.name, 
+              user.fingerprintData, 
+              loginResult.isAdmin
+            );
+            
+            if(!fingerprintResult.allowed) {
+              console.log(`登录失败,设备指纹验证失败: ${user.name} - ${fingerprintResult.message}`);
+              socket.emit('loginFail', fingerprintResult.message);
+              return;
+            }
+            
+            console.log(`设备指纹验证通过: ${user.name} - ${fingerprintResult.message}`);
+          }
+          
           if(loginResult.isAdmin) {
             console.log(`管理员<${user.name}>登录成功！`);
           } else {
@@ -61,6 +80,28 @@ const util={
         // 用户不存在，尝试注册新用户（仅限普通用户）
         const isOnline = await this.isHaveName(user.name);
         if(!isOnline){
+          // 设备指纹验证（注册）
+          if(user.fingerprintData) {
+            const fingerprintResult = await fingerprintManager.validateRegistration(
+              user.name, 
+              user.fingerprintData, 
+              ip, 
+              false // 新注册用户不是管理员
+            );
+            
+            if(!fingerprintResult.allowed) {
+              console.log(`注册失败,设备指纹验证失败: ${user.name} - ${fingerprintResult.message}`);
+              socket.emit('loginFail', fingerprintResult.message);
+              return;
+            }
+            
+            console.log(`设备指纹验证通过: ${user.name} - ${fingerprintResult.message}`);
+          } else {
+            console.log(`注册失败,缺少设备指纹数据: ${user.name}`);
+            socket.emit('loginFail', '设备验证失败，请刷新页面重试');
+            return;
+          }
+          
           // 新用户注册
           user.role = USER_ROLES.USER;
           user.isAdmin = false;

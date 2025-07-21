@@ -16,6 +16,7 @@
     "prod": "node server/index.js"
   },
   "dependencies": {
+    "@fingerprintjs/fingerprintjs": "^4.6.2",
     "bcrypt": "^6.0.0",
     "core-js": "^3.6.5",
     "dotenv": "^17.2.0",

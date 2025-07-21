@@ -119,7 +119,7 @@
           Message.error("输入正确的QQ号有误")
         }
       },
-      login(){
+      async login(){
         if(this.user.name===''){
           Message.error("请输入用户名称！");
           return
@@ -132,7 +132,23 @@
           Message.error("密码长度不能少于6位！");
           return
         }
-        this.$emit("login",this.user)
+        
+        // 收集设备指纹
+        try {
+          const fingerprintData = await this.collectFingerprint();
+          const userWithFingerprint = {
+            ...this.user,
+            fingerprintData: fingerprintData
+          };
+          this.$emit("login", userWithFingerprint);
+        } catch (error) {
+          console.error('设备指纹收集失败:', error);
+          if (error.message === 'PRIVATE_MODE_DETECTED') {
+            Message.error("检测到隐私模式，为了账户安全，请使用正常浏览模式登录");
+          } else {
+            Message.error("设备验证失败，请刷新页面重试");
+          }
+        }
       },
       randomQQ() {
         let min=100000;
@@ -147,6 +163,33 @@
         const len=this.avatarList.length;
         const index=parseInt(Math.random()*len);
         this.user.avatarUrl=this.avatarList[index];
+      },
+      
+      // 收集设备指纹
+      async collectFingerprint() {
+        // 动态加载设备指纹收集脚本
+        if (!window.FingerprintCollector) {
+          await this.loadFingerprintScript();
+        }
+        
+        const collector = new window.FingerprintCollector();
+        return await collector.collectFingerprint();
+      },
+      
+      // 动态加载指纹收集脚本
+      loadFingerprintScript() {
+        return new Promise((resolve, reject) => {
+          if (window.FingerprintCollector) {
+            resolve();
+            return;
+          }
+          
+          const script = document.createElement('script');
+          script.src = '/static/fingerprint-collector.js';
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error('Failed to load fingerprint script'));
+          document.head.appendChild(script);
+        });
       }
     }
   }
@@ -163,9 +206,7 @@
     box-shadow: 0 1px 3px #3a3c3e;
     border-radius: 4px;
   }
-  .user-login-container{
 
-  }
   .user-login-banner{
     background-color: #f5f5f5;
     background-image: url(../assets/images/banner_bg.jpg);
