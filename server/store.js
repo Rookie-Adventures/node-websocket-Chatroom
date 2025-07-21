@@ -2,6 +2,9 @@ const db=require("./db");
 const util=require("./utils")
 const fs=require('fs')
 const bcrypt = require('bcrypt')
+const { AuthManager, USER_ROLES } = require('./auth');
+
+const authManager = new AuthManager();
 module.exports ={
   saveUser(user,status){
     console.log(user.name,status);
@@ -89,5 +92,60 @@ module.exports ={
   // 密码验证
   async verifyPassword(inputPassword, hashedPassword){
     return await bcrypt.compare(inputPassword, hashedPassword);
+  },
+  
+  // 验证用户登录并返回角色信息
+  async verifyUserLogin(username, password) {
+    // 首先检查是否为管理员账户
+    if (authManager.isAdminAccount(username, password)) {
+      return {
+        isValid: true,
+        role: USER_ROLES.ADMIN,
+        isAdmin: true,
+        user: null // 管理员不需要从数据库获取
+      };
+    }
+    
+    // 检查普通用户
+    const user = await this.getUserByName(username);
+    if (user) {
+      const isPasswordValid = await this.verifyPassword(password, user.password);
+      if (isPasswordValid) {
+        return {
+          isValid: true,
+          role: USER_ROLES.USER,
+          isAdmin: false,
+          user: user
+        };
+      }
+    }
+    
+    return {
+      isValid: false,
+      role: null,
+      isAdmin: false,
+      user: null
+    };
+  },
+  
+  // 保存用户时包含角色信息
+  async saveUserWithRole(user, status, role = USER_ROLES.USER) {
+    user.role = role;
+    return this.saveUser(user, status);
+  },
+  
+  // 获取用户角色
+  getUserRole(username, password) {
+    return authManager.getUserRole(username, password);
+  },
+  
+  // 检查用户权限
+  hasPermission(userRole, permission) {
+    return authManager.hasPermission(userRole, permission);
+  },
+  
+  // 检查是否为管理员
+  isAdmin(userRole) {
+    return authManager.isAdmin(userRole);
   }
 };

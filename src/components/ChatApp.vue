@@ -508,6 +508,7 @@
         _this.socket.on("message",_this.listenerMessage);
         _this.socket.on("system",_this.listenerSystem);
         _this.socket.on("history-message",_this.listenerHistoryMessage);
+        _this.socket.on("message-error",_this.listenerMessageError);
       },
       addUser(user){
         let index=-1;
@@ -569,6 +570,9 @@
       listenerHistoryMessage(channelId,msgList){
         const _this=this;
         _this.$set(_this.messageData,channelId,msgList)
+      },
+      listenerMessageError(errorMessage){
+        Message.error(errorMessage);
       },
       removeUser(user){
         for (let i = 0; i < this.users.length; i++) {
