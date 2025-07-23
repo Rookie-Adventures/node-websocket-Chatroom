@@ -77,6 +77,16 @@ const util={
           socket.emit('loginFail','该用户已在线，请稍后再试!')
         }
       } else {
+        // 登录失败，需要区分是用户不存在还是密码错误
+        const existingUser = await store.getUserByName(user.name);
+        
+        if (existingUser) {
+          // 用户存在但密码错误
+          console.log(`登录失败,用户<${user.name}>密码错误!`)
+          socket.emit('loginFail','用户名或密码错误!');
+          return;
+        }
+        
         // 用户不存在，尝试注册新用户（仅限普通用户）
         const isOnline = await this.isHaveName(user.name);
         if(!isOnline){

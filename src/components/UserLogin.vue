@@ -143,11 +143,7 @@
           this.$emit("login", userWithFingerprint);
         } catch (error) {
           console.error('设备指纹收集失败:', error);
-          if (error.message === 'PRIVATE_MODE_DETECTED') {
-            Message.error("检测到隐私模式，为了账户安全，请使用正常浏览模式登录");
-          } else {
-            Message.error("设备验证失败，请刷新页面重试");
-          }
+          Message.error("设备验证失败，请刷新页面重试");
         }
       },
       randomQQ() {

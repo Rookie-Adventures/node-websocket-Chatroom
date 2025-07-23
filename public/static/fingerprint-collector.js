@@ -58,7 +58,13 @@ class FingerprintCollector {
       // 检测隐私模式
       const isPrivateMode = await this.detectPrivateMode();
       if (isPrivateMode) {
-        throw new Error('PRIVATE_MODE_DETECTED');
+        // 隐私模式下返回特殊标记的指纹数据
+        return {
+          isPrivateMode: true,
+          fingerprint: 'PRIVATE_MODE_DETECTED',
+          userAgent: navigator.userAgent,
+          timestamp: Date.now()
+        };
       }
       
       // 使用FingerprintJS获取基础指纹
