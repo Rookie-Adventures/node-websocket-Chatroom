@@ -33,9 +33,12 @@ module.exports ={
       message=`/assets/images/${filename}.png`
     }
     console.log("\x1b[36m"+from.name+"\x1b[0m对<\x1b[36m"+to.name+"\x1b[0m>:\x1b[32m"+message+"\x1b[0m")
+    // 只存储用户ID和基本信息，不存储完整用户对象
     const doc={
-      from,
-      to,
+      fromId: from.id || from.name, // 使用ID作为主键，如果没有ID则使用name
+      toId: to.id || to.name,
+      fromName: from.name, // 保留用户名用于快速显示
+      toName: to.name,
       content:message,
       type,
       time:new Date().getTime()
@@ -52,11 +55,35 @@ module.exports ={
   },
   getMessages() {
     return new Promise((resolve, reject) => {
-      db.message.find({}).sort({time:1}).skip(0).limit(100).exec((err,docs) => {
+      db.message.find({}).sort({time:1}).skip(0).limit(100).exec(async (err,docs) => {
         if(err){
           reject(err)
         }else {
-          resolve(docs)
+          // 为了兼容性，重构消息格式以匹配前端期望的结构
+          const messagesWithUserInfo = await Promise.all(docs.map(async (doc) => {
+            // 如果是新格式（有fromId字段），则构建兼容的用户对象
+            if(doc.fromId) {
+              const fromUser = await this.getUserByName(doc.fromName) || { name: doc.fromName, id: doc.fromId };
+              const toUser = await this.getUserByName(doc.toName) || { name: doc.toName, id: doc.toId };
+              
+              return {
+                ...doc,
+                from: {
+                  name: fromUser.name,
+                  id: fromUser.id || doc.fromId,
+                  avatarUrl: fromUser.avatarUrl || 'static/img/avatar/default.jpg'
+                },
+                to: {
+                  name: toUser.name,
+                  id: toUser.id || doc.toId,
+                  avatarUrl: toUser.avatarUrl || 'static/img/avatar/default.jpg'
+                }
+              };
+            }
+            // 如果是旧格式，直接返回
+            return doc;
+          }));
+          resolve(messagesWithUserInfo)
         }
       })
     })
