@@ -325,6 +325,18 @@ io.sockets.on('connection',(socket)=>{
     socket.on('login',(user)=>{
       util.login(user,socket,false)
     });
+    
+    //监听token登录事件
+    socket.on('tokenLogin', (token) => {
+      const decode = jwt.decode(token);
+      if(decode && decode.data) {
+        // token有效，使用解码的用户信息重新登录
+        util.login(decode.data, socket, true);
+      } else {
+        // token无效或过期
+        socket.emit('tokenLoginFail', 'Token已过期或无效');
+      }
+    });
   }
 });
 module.exports=io;

@@ -378,6 +378,7 @@
       }
     },
     mounted(){
+      this.checkAutoLogin();
       this.initSocket();
     },
     methods:{
@@ -469,6 +470,31 @@
           this.socket.emit('login',user)
         }
       },
+      
+      // 检查自动登录
+      checkAutoLogin(){
+        const savedToken = localStorage.getItem('chatToken');
+        const savedUser = localStorage.getItem('chatUser');
+        
+        if (savedToken && savedUser) {
+          try {
+            this.token = savedToken;
+            this.loginUser = JSON.parse(savedUser);
+            console.log('发现保存的登录状态，准备自动登录');
+          } catch (error) {
+            console.error('解析保存的用户信息失败:', error);
+            this.clearLoginData();
+          }
+        }
+      },
+      
+      // 清除登录数据
+      clearLoginData(){
+        localStorage.removeItem('chatToken');
+        localStorage.removeItem('chatUser');
+        this.token = '';
+        this.loginUser = {};
+      },
       playAudio() {
         const $audio=this.$refs['audio'];
         if($audio){
@@ -502,9 +528,17 @@
         _this.socket.on("connect",(data)=>{
           this.isConnect=true;
           console.log("链接成功！",data)
+          
+          // 如果有保存的token，尝试自动登录
+          if (_this.token && _this.loginUser.id) {
+            console.log('使用保存的token自动登录');
+            _this.socket.emit('tokenLogin', _this.token);
+          }
         })
         _this.socket.on("loginSuccess",_this.loginSuccess);
         _this.socket.on("loginFail",_this.loginFail);
+        _this.socket.on("tokenLoginSuccess",_this.tokenLoginSuccess);
+        _this.socket.on("tokenLoginFail",_this.tokenLoginFail);
         _this.socket.on("message",_this.listenerMessage);
         _this.socket.on("system",_this.listenerSystem);
         _this.socket.on("history-message",_this.listenerHistoryMessage);
@@ -528,9 +562,30 @@
         _this.loginUser=data.user;
         _this.token=data.token;
         _this.users=users;
+        
+        // 保存登录状态到localStorage
+        localStorage.setItem('chatToken', data.token);
+        localStorage.setItem('chatUser', JSON.stringify(data.user));
       },
       loginFail(message){
         Message.error(message);
+      },
+      
+      tokenLoginSuccess(data, users){
+        console.log('Token自动登录成功');
+        this.loginUser = data.user;
+        this.token = data.token;
+        this.users = users;
+        
+        // 更新localStorage中的数据
+        localStorage.setItem('chatToken', data.token);
+        localStorage.setItem('chatUser', JSON.stringify(data.user));
+      },
+      
+      tokenLoginFail(message){
+        console.log('Token自动登录失败:', message);
+        this.clearLoginData();
+        Message.warning('登录状态已过期，请重新登录');
       },
       listenerMessage(from,to,message,type){
         const _this=this;
